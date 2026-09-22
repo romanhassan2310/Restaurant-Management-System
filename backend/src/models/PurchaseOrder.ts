@@ -1,0 +1,9 @@
+import mongoose, { Schema, type Document, type Types } from 'mongoose';
+
+export type PurchaseOrderStatus = 'draft' | 'sent' | 'approved' | 'partially_received' | 'received' | 'cancelled';
+export interface IPurchaseOrderItem { product: Types.ObjectId; variant?: Types.ObjectId; quantity: number; receivedQuantity: number; unitCost: number; lineTotal: number; }
+export interface IPurchaseOrder extends Document { orderNumber: string; request?: Types.ObjectId; supplier: Types.ObjectId; items: IPurchaseOrderItem[]; status: PurchaseOrderStatus; subtotal: number; taxTotal: number; total: number; expectedDate?: Date; notes?: string; createdBy?: Types.ObjectId; }
+const itemSchema = new Schema<IPurchaseOrderItem>({ product: { type: Schema.Types.ObjectId, ref: 'Product', required: true }, variant: { type: Schema.Types.ObjectId, ref: 'ProductVariant' }, quantity: { type: Number, required: true, min: 0.000001 }, receivedQuantity: { type: Number, min: 0, default: 0 }, unitCost: { type: Number, required: true, min: 0 }, lineTotal: { type: Number, required: true, min: 0 } }, { _id: false });
+const schema = new Schema<IPurchaseOrder>({ orderNumber: { type: String, required: true, unique: true }, request: { type: Schema.Types.ObjectId, ref: 'PurchaseRequest' }, supplier: { type: Schema.Types.ObjectId, ref: 'Supplier', required: true }, items: { type: [itemSchema], required: true }, status: { type: String, enum: ['draft', 'sent', 'approved', 'partially_received', 'received', 'cancelled'], default: 'draft' }, subtotal: { type: Number, required: true, min: 0 }, taxTotal: { type: Number, min: 0, default: 0 }, total: { type: Number, required: true, min: 0 }, expectedDate: Date, notes: String, createdBy: { type: Schema.Types.ObjectId, ref: 'User' } }, { timestamps: true });
+schema.index({ supplier: 1, createdAt: -1 });
+export const PurchaseOrder = mongoose.model<IPurchaseOrder>('PurchaseOrder', schema);

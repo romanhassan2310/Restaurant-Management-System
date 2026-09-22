@@ -1,0 +1,7 @@
+import mongoose, { Schema, type Document, type Types } from 'mongoose';
+
+export type PurchaseInvoiceStatus = 'unpaid' | 'partially_paid' | 'paid' | 'cancelled';
+export interface IPurchaseInvoice extends Document { invoiceNumber: string; supplier: Types.ObjectId; purchaseOrder?: Types.ObjectId; goodsReceipt?: Types.ObjectId; invoiceDate: Date; dueDate?: Date; subtotal: number; taxTotal: number; total: number; paidAmount: number; status: PurchaseInvoiceStatus; notes?: string; createdBy?: Types.ObjectId; }
+const schema = new Schema<IPurchaseInvoice>({ invoiceNumber: { type: String, required: true, unique: true }, supplier: { type: Schema.Types.ObjectId, ref: 'Supplier', required: true }, purchaseOrder: { type: Schema.Types.ObjectId, ref: 'PurchaseOrder' }, goodsReceipt: { type: Schema.Types.ObjectId, ref: 'GoodsReceipt' }, invoiceDate: { type: Date, default: Date.now }, dueDate: Date, subtotal: { type: Number, required: true, min: 0 }, taxTotal: { type: Number, min: 0, default: 0 }, total: { type: Number, required: true, min: 0 }, paidAmount: { type: Number, min: 0, default: 0 }, status: { type: String, enum: ['unpaid', 'partially_paid', 'paid', 'cancelled'], default: 'unpaid' }, notes: String, createdBy: { type: Schema.Types.ObjectId, ref: 'User' } }, { timestamps: true });
+schema.index({ supplier: 1, invoiceDate: -1 });
+export const PurchaseInvoice = mongoose.model<IPurchaseInvoice>('PurchaseInvoice', schema);
