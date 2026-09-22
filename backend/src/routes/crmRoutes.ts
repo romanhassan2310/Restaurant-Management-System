@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { crmController } from '../controllers/crmController.js';
-import { authenticate } from '../middleware/auth.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
@@ -9,7 +9,7 @@ router.post('/qr-leads', (req, res) => crmController.captureQrLead(req, res));
 router.post('/promotions/validate', (req, res) => crmController.validatePromotionCode(req, res));
 
 // Authenticated CRM routes
-router.use(authenticate);
+router.use(requireAuth);
 
 // Customers
 router.get('/customers', (req, res) => crmController.getCustomers(req, res));

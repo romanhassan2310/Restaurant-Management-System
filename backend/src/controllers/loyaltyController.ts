@@ -23,7 +23,7 @@ export class LoyaltyController {
 
   async updateLevel(req: Request, res: Response) {
     try {
-      const level = await loyaltyService.updateLevel(req.params.id, req.body);
+      const level = await loyaltyService.updateLevel(String(req.params.id), req.body);
       res.json(level);
     } catch (err: any) {
       res.status(400).json({ error: err.message });
@@ -32,7 +32,7 @@ export class LoyaltyController {
 
   async deleteLevel(req: Request, res: Response) {
     try {
-      const success = await loyaltyService.deleteLevel(req.params.id);
+      const success = await loyaltyService.deleteLevel(String(req.params.id));
       res.json({ success });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -60,7 +60,7 @@ export class LoyaltyController {
 
   async updateReward(req: Request, res: Response) {
     try {
-      const reward = await loyaltyService.updateReward(req.params.id, req.body);
+      const reward = await loyaltyService.updateReward(String(req.params.id), req.body);
       res.json(reward);
     } catch (err: any) {
       res.status(400).json({ error: err.message });
@@ -69,7 +69,7 @@ export class LoyaltyController {
 
   async deleteReward(req: Request, res: Response) {
     try {
-      const success = await loyaltyService.deleteReward(req.params.id);
+      const success = await loyaltyService.deleteReward(String(req.params.id));
       res.json({ success });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -99,7 +99,7 @@ export class LoyaltyController {
 
   async getCustomerLoyaltyHistory(req: Request, res: Response) {
     try {
-      const history = await loyaltyService.getLoyaltyHistory(req.params.customerId);
+      const history = await loyaltyService.getLoyaltyHistory(String(req.params.customerId));
       res.json(history);
     } catch (err: any) {
       res.status(500).json({ error: err.message });

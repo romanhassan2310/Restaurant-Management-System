@@ -119,13 +119,85 @@ export default function PosPage() {
   const updateOrder = async (path: string, body?: object) => {
     try { await api.post(path, body); setMessage('Order updated.'); await loadPosData(); } catch { setMessage('Order action failed.'); }
   };
-    const payOrder = async (order: Order) => {
-      try {
-        await api.post(`/payments/orders/${order._id}/payments`, { payments: [{ method: 'cash', amount: order.total }] });
-        setMessage('Cash payment recorded.');
-        await loadPosData();
-      } catch { setMessage('Payment failed. Start a POS shift and check the remaining balance.'); }
-    };
+  const payOrder = async (order: Order) => {
+    try {
+      await api.post(`/payments/orders/${order._id}/payments`, { payments: [{ method: 'cash', amount: order.total }] });
+      setMessage('Cash payment recorded.');
+      await loadPosData();
+    } catch { setMessage('Payment failed. Start a POS shift and check the remaining balance.'); }
+  };
+
+  const [selectedCustomerDetail, setSelectedCustomerDetail] = useState<any | null>(null);
+  const [promoCodeInput, setPromoCodeInput] = useState('');
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [payTargetOrder, setPayTargetOrder] = useState<Order | null>(null);
+  const [payMethod, setPayMethod] = useState<'cash' | 'card' | 'store_credit' | 'gift_card'>('cash');
+  const [giftCardCodeInput, setGiftCardCodeInput] = useState('');
+  const [giftCardBalanceInfo, setGiftCardBalanceInfo] = useState<string>('');
+
+  useEffect(() => {
+    if (customer) {
+      api.get(`/crm/customers/${customer}`).then((res) => {
+        setSelectedCustomerDetail(res.data);
+      }).catch(() => setSelectedCustomerDetail(null));
+    } else {
+      setSelectedCustomerDetail(null);
+    }
+  }, [customer]);
+
+  const applyPromoCode = async () => {
+    if (!promoCodeInput) return;
+    try {
+      const res = await api.post('/crm/promotions/validate', {
+        code: promoCodeInput,
+        orderAmount: subtotal,
+        customerGroupId: selectedCustomerDetail?.customerGroup?._id || selectedCustomerDetail?.customerGroup,
+      });
+      if (res.data.valid && res.data.promotion) {
+        setDiscountType(res.data.promotion.discountType);
+        setDiscountValue(String(res.data.promotion.discountValue));
+        setMessage(`Promo code "${res.data.promotion.code}" applied!`);
+      } else {
+        setMessage(res.data.message || 'Invalid promotion code.');
+      }
+    } catch {
+      setMessage('Failed to validate promo code.');
+    }
+  };
+
+  const lookupGiftCardCode = async () => {
+    if (!giftCardCodeInput) return;
+    try {
+      const res = await api.get(`/gift-cards/lookup/${giftCardCodeInput}`);
+      setGiftCardBalanceInfo(`Card Balance: $${res.data.currentBalance.toFixed(2)} (${res.data.status})`);
+    } catch (err: any) {
+      setGiftCardBalanceInfo(err.response?.data?.error || 'Gift card not found');
+    }
+  };
+
+  const processOrderPayment = async () => {
+    if (!payTargetOrder) return;
+    try {
+      const payload: any = {
+        payments: [
+          {
+            method: payMethod,
+            amount: payTargetOrder.total,
+            reference: payMethod === 'gift_card' ? giftCardCodeInput : undefined,
+          },
+        ],
+      };
+      await api.post(`/payments/orders/${payTargetOrder._id}/payments`, payload);
+      setMessage(`Payment of $${payTargetOrder.total.toFixed(2)} (${payMethod.replace('_', ' ')}) recorded successfully.`);
+      setShowPaymentModal(false);
+      setPayTargetOrder(null);
+      setGiftCardCodeInput('');
+      setGiftCardBalanceInfo('');
+      await loadPosData();
+    } catch (err: any) {
+      setMessage(err.response?.data?.error || 'Payment failed.');
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -138,13 +210,131 @@ export default function PosPage() {
         <aside className="rounded-xl bg-slate-950 p-5 text-white shadow-sm">
           <div className="flex items-center justify-between"><h3 className="text-xl font-semibold">Current order</h3><span className="text-xs uppercase tracking-wider text-emerald-300">{orderTypeLabels[orderType]}</span></div>
           <div className="mt-4 grid gap-2 sm:grid-cols-2"><select value={orderType} onChange={(event) => setOrderType(event.target.value as keyof typeof orderTypeLabels)} className="rounded bg-white/10 px-2 py-2 text-sm"><option value="dine_in" className="text-slate-950">Dine-In</option><option value="take_away" className="text-slate-950">Take Away</option><option value="delivery" className="text-slate-950">Delivery</option><option value="mobile_van" className="text-slate-950">Mobile / Van</option></select><select value={customer} onChange={(event) => setCustomer(event.target.value)} className="rounded bg-white/10 px-2 py-2 text-sm"><option value="" className="text-slate-950">Customer</option>{customers.map((item) => <option key={item._id} value={item._id} className="text-slate-950">{item.name}</option>)}</select><select value={table} onChange={(event) => setTable(event.target.value)} className="rounded bg-white/10 px-2 py-2 text-sm"><option value="" className="text-slate-950">Table</option>{tables.filter((item) => item.status !== 'inactive').map((item) => <option key={item._id} value={item._id} className="text-slate-950">{item.name} ({item.status})</option>)}</select><select value={waiter} onChange={(event) => setWaiter(event.target.value)} className="rounded bg-white/10 px-2 py-2 text-sm"><option value="" className="text-slate-950">Waiter</option>{waiters.map((item) => <option key={item._id} value={item._id} className="text-slate-950">{item.firstName} {item.lastName}</option>)}</select></div>
+
+          {/* Customer CRM Badge */}
+          {selectedCustomerDetail && (
+            <div className="mt-3 p-3 bg-white/10 rounded-lg border border-white/10 text-xs space-y-1">
+              <div className="flex justify-between font-semibold">
+                <span className="text-indigo-300">{selectedCustomerDetail.name}</span>
+                <span className="text-emerald-400">Credit: ${selectedCustomerDetail.creditBalance?.toFixed(2) || '0.00'}</span>
+              </div>
+              <div className="flex justify-between text-slate-300">
+                <span>Loyalty: {selectedCustomerDetail.loyaltyPoints || 0} pts</span>
+                {selectedCustomerDetail.customerGroup && (
+                  <span className="text-amber-300">Group: {selectedCustomerDetail.customerGroup.name} ({selectedCustomerDetail.customerGroup.discountPercentage}%)</span>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className="mt-5 space-y-3">{cart.map((item, index) => <div key={`${item.product._id}-${item.variant?._id ?? 'base'}`} className="border-b border-white/10 pb-3"><div className="flex items-start justify-between gap-2"><div><p className="font-medium">{item.variant ? `${item.product.name} / ${item.variant.name}` : item.product.name}</p><p className="text-xs text-slate-400">${(item.variant?.sellingPrice ?? item.product.sellingPrice).toFixed(2)}</p></div><button onClick={() => setCart((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="text-xs text-rose-300">Remove</button></div><div className="mt-2 flex gap-2"><input type="number" min="1" value={item.quantity} onChange={(event) => setCart((current) => current.map((currentItem, itemIndex) => itemIndex === index ? { ...currentItem, quantity: Number(event.target.value) } : currentItem))} className="w-16 rounded bg-white/10 px-2 py-1" /><input value={item.notes} onChange={(event) => setCart((current) => current.map((currentItem, itemIndex) => itemIndex === index ? { ...currentItem, notes: event.target.value } : currentItem))} placeholder="Item note" className="min-w-0 flex-1 rounded bg-white/10 px-2 py-1 text-sm" /></div><div className="mt-2 flex flex-wrap gap-1">{modifiers.filter((modifier) => !modifier.product || modifier.product === item.product._id).map((modifier) => <button key={modifier._id} onClick={() => setCart((current) => current.map((currentItem, itemIndex) => itemIndex === index ? { ...currentItem, modifiers: currentItem.modifiers.some((selected) => selected._id === modifier._id) ? currentItem.modifiers.filter((selected) => selected._id !== modifier._id) : [...currentItem.modifiers, modifier] } : currentItem))} className={`rounded px-2 py-1 text-xs ${item.modifiers.some((selected) => selected._id === modifier._id) ? 'bg-emerald-400 text-emerald-950' : 'bg-white/10 text-slate-300'}`}>{modifier.name} +${modifier.price.toFixed(2)}</button>)}</div></div>)}</div>
-          <div className="mt-5 grid grid-cols-3 gap-2"><select value={discountType} onChange={(event) => setDiscountType(event.target.value as 'fixed' | 'percentage')} className="rounded bg-white/10 px-2 py-2 text-xs"><option value="fixed" className="text-slate-950">Discount $</option><option value="percentage" className="text-slate-950">Discount %</option></select><input value={discountValue} onChange={(event) => setDiscountValue(event.target.value)} type="number" min="0" className="rounded bg-white/10 px-2 py-2 text-xs" placeholder="Value" /><input value={taxRate} onChange={(event) => setTaxRate(event.target.value)} type="number" min="0" max="100" className="rounded bg-white/10 px-2 py-2 text-xs" placeholder="Tax %" /><input value={serviceChargeRate} onChange={(event) => setServiceChargeRate(event.target.value)} type="number" min="0" max="100" className="col-span-3 rounded bg-white/10 px-2 py-2 text-xs" placeholder="Service charge %" /></div>
+
+          {/* Promo Code Input */}
+          <div className="mt-3 flex gap-2">
+            <input
+              type="text"
+              placeholder="Promo Code"
+              value={promoCodeInput}
+              onChange={(e) => setPromoCodeInput(e.target.value.toUpperCase())}
+              className="flex-1 rounded bg-white/10 px-2 py-1 text-xs font-mono uppercase"
+            />
+            <button onClick={applyPromoCode} className="px-3 py-1 bg-indigo-500 hover:bg-indigo-600 text-xs font-semibold rounded">
+              Apply
+            </button>
+          </div>
+
+          <div className="mt-4 grid grid-cols-3 gap-2"><select value={discountType} onChange={(event) => setDiscountType(event.target.value as 'fixed' | 'percentage')} className="rounded bg-white/10 px-2 py-2 text-xs"><option value="fixed" className="text-slate-950">Discount $</option><option value="percentage" className="text-slate-950">Discount %</option></select><input value={discountValue} onChange={(event) => setDiscountValue(event.target.value)} type="number" min="0" className="rounded bg-white/10 px-2 py-2 text-xs" placeholder="Value" /><input value={taxRate} onChange={(event) => setTaxRate(event.target.value)} type="number" min="0" max="100" className="rounded bg-white/10 px-2 py-2 text-xs" placeholder="Tax %" /><input value={serviceChargeRate} onChange={(event) => setServiceChargeRate(event.target.value)} type="number" min="0" max="100" className="col-span-3 rounded bg-white/10 px-2 py-2 text-xs" placeholder="Service charge %" /></div>
           <div className="mt-5 space-y-1 border-t border-white/10 pt-4 text-sm"><div className="flex justify-between text-slate-300"><span>Subtotal</span><span>${subtotal.toFixed(2)}</span></div><div className="flex justify-between text-slate-300"><span>Tax / service</span><span>${(tax + serviceCharge).toFixed(2)}</span></div><div className="flex justify-between text-lg font-bold"><span>Total</span><span>${total.toFixed(2)}</span></div></div>
           <div className="mt-5 grid grid-cols-2 gap-2"><button onClick={() => submitOrder(true)} className="rounded border border-white/20 px-3 py-2 text-sm">Hold order</button><button onClick={() => submitOrder(false)} className="rounded bg-emerald-400 px-3 py-2 font-semibold text-emerald-950">Create order</button></div>
-  </aside>
+        </aside>
       </div>
-      <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200"><h3 className="font-semibold">Order history</h3><div className="mt-3 overflow-x-auto"><table className="w-full text-left text-sm"><thead className="text-xs uppercase tracking-wide text-slate-500"><tr><th className="py-2">Order</th><th className="py-2">Type</th><th className="py-2">Status</th><th className="py-2">Total</th><th className="py-2">Actions</th></tr></thead><tbody>{orders.map((order) => <tr key={order._id} className="border-t border-slate-100"><td className="py-3 font-medium">{order.orderNumber}</td><td className="py-3">{orderTypeLabels[order.type as keyof typeof orderTypeLabels] ?? order.type}</td><td className="py-3 capitalize">{order.status}</td><td className="py-3">${order.total.toFixed(2)}</td><td className="py-3"><div className="flex gap-2">{(order.status === 'held' || order.status === 'open') && <button onClick={() => editOrder(order._id)} className="text-slate-700">Edit</button>}{order.status === 'held' && <button onClick={() => updateOrder(`/pos/orders/${order._id}/resume`)} className="text-emerald-700">Resume</button>}{order.status === 'open' && <><button onClick={() => updateOrder(`/pos/orders/${order._id}/pay`)} className="text-emerald-700">Pay</button><button onClick={() => updateOrder(`/pos/orders/${order._id}/void`, { reason: 'Voided from POS' })} className="text-rose-700">Void</button></>}{order.status === 'completed' && <button onClick={() => updateOrder(`/pos/orders/${order._id}/refund`, { reason: 'Refunded from POS' })} className="text-rose-700">Refund</button>}</div></td></tr>)}</tbody></table></div><h3 className="mt-6 font-semibold">Receipt history</h3><div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{receipts.map((receipt) => <div key={receipt._id} className="rounded border border-slate-200 p-3 text-sm"><p className="font-medium">{receipt.receiptNumber}</p><p className="text-slate-500">{receipt.order.orderNumber}</p><p className="mt-1 font-semibold">${receipt.total.toFixed(2)}</p></div>)}</div></section>
+
+      {/* POS Order & Receipt History Table */}
+      <section className="rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+        <h3 className="font-semibold">Order history</h3>
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th className="py-2">Order</th>
+                <th className="py-2">Type</th>
+                <th className="py-2">Status</th>
+                <th className="py-2">Total</th>
+                <th className="py-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((order) => (
+                <tr key={order._id} className="border-t border-slate-100">
+                  <td className="py-3 font-medium">{order.orderNumber}</td>
+                  <td className="py-3">{orderTypeLabels[order.type as keyof typeof orderTypeLabels] ?? order.type}</td>
+                  <td className="py-3 capitalize">{order.status}</td>
+                  <td className="py-3">${order.total.toFixed(2)}</td>
+                  <td className="py-3">
+                    <div className="flex gap-2">
+                      {(order.status === 'held' || order.status === 'open') && <button onClick={() => editOrder(order._id)} className="text-slate-700">Edit</button>}
+                      {order.status === 'held' && <button onClick={() => updateOrder(`/pos/orders/${order._id}/resume`)} className="text-emerald-700">Resume</button>}
+                      {order.status === 'open' && (
+                        <>
+                          <button onClick={() => { setPayTargetOrder(order); setShowPaymentModal(true); }} className="text-emerald-700 font-semibold">Pay</button>
+                          <button onClick={() => updateOrder(`/pos/orders/${order._id}/void`, { reason: 'Voided from POS' })} className="text-rose-700">Void</button>
+                        </>
+                      )}
+                      {order.status === 'completed' && <button onClick={() => updateOrder(`/pos/orders/${order._id}/refund`, { reason: 'Refunded from POS' })} className="text-rose-700">Refund</button>}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      {/* POS MULTI-METHOD PAYMENT MODAL */}
+      {showPaymentModal && payTargetOrder && (
+        <div className="fixed inset-0 bg-slate-900/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4 text-slate-900">
+            <h3 className="text-lg font-bold text-slate-900">Pay Order: {payTargetOrder.orderNumber}</h3>
+            <div className="p-3 bg-slate-50 rounded-lg flex justify-between items-center">
+              <span className="text-sm text-slate-500">Order Total Amount</span>
+              <span className="text-xl font-bold text-emerald-600">${payTargetOrder.total.toFixed(2)}</span>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-500 uppercase">Select Payment Method</label>
+              <select value={payMethod} onChange={(e) => setPayMethod(e.target.value as any)} className="w-full px-3 py-2 border rounded-lg text-sm mt-1">
+                <option value="cash">Cash</option>
+                <option value="card">Card</option>
+                <option value="store_credit">Customer Store Credit</option>
+                <option value="gift_card">Gift Card</option>
+              </select>
+            </div>
+
+            {payMethod === 'gift_card' && (
+              <div className="space-y-2 border p-3 rounded-lg bg-indigo-50/50 border-indigo-100">
+                <label className="text-xs font-semibold text-slate-500 uppercase">Gift Card Code</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="GC-XXXX-XXXX"
+                    value={giftCardCodeInput}
+                    onChange={(e) => setGiftCardCodeInput(e.target.value.toUpperCase())}
+                    className="flex-1 px-3 py-1.5 border rounded-lg text-sm font-mono uppercase"
+                  />
+                  <button type="button" onClick={lookupGiftCardCode} className="px-3 py-1.5 bg-indigo-600 text-white text-xs font-semibold rounded-lg">Check</button>
+                </div>
+                {giftCardBalanceInfo && <p className="text-xs font-semibold text-indigo-700">{giftCardBalanceInfo}</p>}
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-4 border-t">
+              <button type="button" onClick={() => setShowPaymentModal(false)} className="px-4 py-2 border text-slate-600 rounded-lg text-sm">Cancel</button>
+              <button type="button" onClick={processOrderPayment} className="px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold">Confirm Payment</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

@@ -11,7 +11,7 @@ const router = Router();
 router.use(requireAuth);
 
 const paymentSchema = z.object({
-  method: z.enum(['cash', 'card', 'qr', 'mobile_payment']),
+  method: z.enum(['cash', 'card', 'qr', 'mobile_payment', 'store_credit', 'gift_card']),
   amount: z.number().positive(),
   groupType: z.enum(['single', 'split', 'mixed']).optional(),
   reference: z.string().optional(),

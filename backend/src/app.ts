@@ -20,6 +20,12 @@ import purchaseRoutes from './routes/purchaseRoutes.js';
 import { crmRoutes } from './routes/crmRoutes.js';
 import { loyaltyRoutes } from './routes/loyaltyRoutes.js';
 import { giftCardRoutes } from './routes/giftCardRoutes.js';
+import { hrRoutes } from './routes/hrRoutes.js';
+import { payrollRoutes } from './routes/payrollRoutes.js';
+import expenseRoutes from './routes/expenseRoutes.js';
+import cateringRoutes from './routes/cateringRoutes.js';
+import quotationRoutes from './routes/quotationRoutes.js';
+import mobileVanRoutes from './routes/mobileVanRoutes.js';
 
 const app = express();
 
@@ -76,6 +82,12 @@ app.use('/api/purchases', purchaseRoutes);
 app.use('/api/crm', crmRoutes);
 app.use('/api/loyalty', loyaltyRoutes);
 app.use('/api/gift-cards', giftCardRoutes);
+app.use('/api/hr', hrRoutes);
+app.use('/api/hr/payroll', payrollRoutes);
+app.use('/api/expenses', expenseRoutes);
+app.use('/api/catering', cateringRoutes);
+app.use('/api/quotations', quotationRoutes);
+app.use('/api/mobile-van', mobileVanRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

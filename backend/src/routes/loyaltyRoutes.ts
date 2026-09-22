@@ -1,10 +1,10 @@
 import { Router } from 'express';
 import { loyaltyController } from '../controllers/loyaltyController.js';
-import { authenticate } from '../middleware/auth.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
-router.use(authenticate);
+router.use(requireAuth);
 
 // Tiers / Levels
 router.get('/levels', (req, res) => loyaltyController.getLevels(req, res));

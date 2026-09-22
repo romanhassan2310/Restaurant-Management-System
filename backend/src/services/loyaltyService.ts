@@ -80,7 +80,7 @@ export class LoyaltyService {
     // Evaluate tier multiplier
     let multiplier = 1;
     if (customer.loyaltyLevel && typeof customer.loyaltyLevel === 'object') {
-      multiplier = (customer.loyaltyLevel as ILoyaltyLevel).pointsMultiplier || 1;
+      multiplier = (customer.loyaltyLevel as unknown as ILoyaltyLevel).pointsMultiplier || 1;
     }
 
     const pointsEarned = Math.floor(orderAmount * multiplier);

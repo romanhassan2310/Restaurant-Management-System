@@ -4,7 +4,7 @@ import { giftCardService } from '../services/giftCardService.js';
 export class GiftCardController {
   async issueGiftCard(req: Request, res: Response) {
     try {
-      const performedBy = (req as any).user?.userId;
+      const performedBy = (req as any).user?.id || (req as any).user?.userId;
       const result = await giftCardService.issueGiftCard({
         ...req.body,
         performedBy,
@@ -17,7 +17,7 @@ export class GiftCardController {
 
   async lookupGiftCard(req: Request, res: Response) {
     try {
-      const { code } = req.params;
+      const code = String(req.params.code);
       const card = await giftCardService.lookupGiftCard(code);
       res.json(card);
     } catch (err: any) {
@@ -28,7 +28,7 @@ export class GiftCardController {
   async redeemGiftCard(req: Request, res: Response) {
     try {
       const { code, amount, orderId, branchId } = req.body;
-      const performedBy = (req as any).user?.userId;
+      const performedBy = (req as any).user?.id || (req as any).user?.userId;
       const result = await giftCardService.redeemGiftCard(
         code,
         Number(amount),
@@ -59,7 +59,7 @@ export class GiftCardController {
 
   async getGiftCardHistory(req: Request, res: Response) {
     try {
-      const history = await giftCardService.getGiftCardHistory(req.params.id);
+      const history = await giftCardService.getGiftCardHistory(String(req.params.id));
       res.json(history);
     } catch (err: any) {
       res.status(500).json({ error: err.message });

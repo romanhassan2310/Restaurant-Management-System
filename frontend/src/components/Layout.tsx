@@ -3,6 +3,9 @@ import { NavLink } from 'react-router-dom';
 const navItems = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/pos', label: 'POS' },
+  { to: '/crm', label: 'CRM' },
+  { to: '/loyalty', label: 'Loyalty' },
+  { to: '/gift-cards', label: 'Gift Cards' },
   { to: '/inventory', label: 'Inventory' },
   { to: '/shifts', label: 'Shifts' },
   { to: '/payments', label: 'Payments' },
@@ -10,6 +13,12 @@ const navItems = [
   { to: '/tables', label: 'Tables' },
   { to: '/waiter', label: 'Waiter' },
   { to: '/procurement', label: 'Procurement' },
+  { to: '/hr', label: 'HR' },
+  { to: '/payroll', label: 'Payroll' },
+  { to: '/expenses', label: 'Expenses' },
+  { to: '/catering', label: 'Catering' },
+  { to: '/quotations', label: 'Quotations' },
+  { to: '/mobile-van', label: 'Mobile / Van Sales' },
 ];
 
 export default function Layout({ children }: { children: React.ReactNode }) {

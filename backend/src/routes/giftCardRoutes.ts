@@ -1,13 +1,13 @@
 import { Router } from 'express';
 import { giftCardController } from '../controllers/giftCardController.js';
-import { authenticate } from '../middleware/auth.js';
+import { requireAuth } from '../middleware/auth.js';
 
 const router = Router();
 
 // Lookup code (can be called during checkout by POS or QR)
 router.get('/lookup/:code', (req, res) => giftCardController.lookupGiftCard(req, res));
 
-router.use(authenticate);
+router.use(requireAuth);
 
 router.get('/', (req, res) => giftCardController.getGiftCards(req, res));
 router.post('/issue', (req, res) => giftCardController.issueGiftCard(req, res));

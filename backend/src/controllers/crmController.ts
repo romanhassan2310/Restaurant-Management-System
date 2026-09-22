@@ -25,7 +25,7 @@ export class CrmController {
 
   async getCustomerById(req: Request, res: Response) {
     try {
-      const customer = await crmService.getCustomerById(req.params.id);
+      const customer = await crmService.getCustomerById(String(req.params.id));
       if (!customer) return res.status(404).json({ error: 'Customer not found' });
       res.json(customer);
     } catch (err: any) {
@@ -44,7 +44,7 @@ export class CrmController {
 
   async updateCustomer(req: Request, res: Response) {
     try {
-      const customer = await crmService.updateCustomer(req.params.id, req.body);
+      const customer = await crmService.updateCustomer(String(req.params.id), req.body);
       if (!customer) return res.status(404).json({ error: 'Customer not found' });
       res.json(customer);
     } catch (err: any) {
@@ -54,7 +54,7 @@ export class CrmController {
 
   async deleteCustomer(req: Request, res: Response) {
     try {
-      const success = await crmService.deleteCustomer(req.params.id);
+      const success = await crmService.deleteCustomer(String(req.params.id));
       res.json({ success });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -82,7 +82,7 @@ export class CrmController {
 
   async updateCustomerGroup(req: Request, res: Response) {
     try {
-      const group = await crmService.updateCustomerGroup(req.params.id, req.body);
+      const group = await crmService.updateCustomerGroup(String(req.params.id), req.body);
       res.json(group);
     } catch (err: any) {
       res.status(400).json({ error: err.message });
@@ -91,7 +91,7 @@ export class CrmController {
 
   async deleteCustomerGroup(req: Request, res: Response) {
     try {
-      const success = await crmService.deleteCustomerGroup(req.params.id);
+      const success = await crmService.deleteCustomerGroup(String(req.params.id));
       res.json({ success });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -119,7 +119,7 @@ export class CrmController {
 
   async updatePromotion(req: Request, res: Response) {
     try {
-      const promo = await crmService.updatePromotion(req.params.id, req.body);
+      const promo = await crmService.updatePromotion(String(req.params.id), req.body);
       res.json(promo);
     } catch (err: any) {
       res.status(400).json({ error: err.message });
@@ -128,7 +128,7 @@ export class CrmController {
 
   async deletePromotion(req: Request, res: Response) {
     try {
-      const success = await crmService.deletePromotion(req.params.id);
+      const success = await crmService.deletePromotion(String(req.params.id));
       res.json({ success });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
@@ -152,9 +152,9 @@ export class CrmController {
   async adjustCredit(req: Request, res: Response) {
     try {
       const { amount, type, notes, orderId } = req.body;
-      const createdBy = (req as any).user?.userId;
+      const createdBy = (req as any).user?.id || (req as any).user?.userId;
       const result = await crmService.adjustCustomerCredit(
-        req.params.id,
+        String(req.params.id),
         Number(amount),
         type,
         notes,
@@ -169,7 +169,7 @@ export class CrmController {
 
   async getCustomerHistory(req: Request, res: Response) {
     try {
-      const history = await crmService.getCustomerHistory(req.params.id);
+      const history = await crmService.getCustomerHistory(String(req.params.id));
       res.json(history);
     } catch (err: any) {
       res.status(500).json({ error: err.message });

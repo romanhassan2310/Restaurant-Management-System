@@ -99,70 +99,71 @@ export async function recordPayments(orderId: string, inputs: PaymentInput[], us
   const session = await mongoose.startSession();
   try {
     let result!: { order: unknown; payments: unknown[]; receipt?: unknown; invoice?: unknown; paid: number; due: number };
-    let customerToReward: { customerId: string; total: number; orderId: string } | null = null;
+  const customerToReward: { customerId: string; total: number; orderId: string }[] = [];
 
-    await session.withTransaction(async () => {
-      const order = await Order.findOne({ _id: orderId, status: { $in: ['open'] } }).session(session);
-      if (!order) throw new AppError('Open order not found', 404);
-      const shift = await Shift.findOne({ user: userId, status: 'open' }).session(session);
-      if (!shift) throw new AppError('An open POS shift is required to accept payment', 409);
-      const paidBefore = await currentPaidAmount(orderId, session);
-      const due = money(order.total - paidBefore);
-      const requested = money(inputs.reduce((sum, input) => sum + input.amount, 0));
-      if (inputs.some((input) => !Number.isFinite(input.amount) || input.amount <= 0)) throw new AppError('Payment amounts must be greater than zero', 400);
-      if (requested > due) throw new AppError(`Payment exceeds remaining balance of ${due.toFixed(2)}`, 400);
+  await session.withTransaction(async () => {
+    const order = await Order.findOne({ _id: orderId, status: { $in: ['open'] } }).session(session);
+    if (!order) throw new AppError('Open order not found', 404);
+    const shift = await Shift.findOne({ user: userId, status: 'open' }).session(session);
+    if (!shift) throw new AppError('An open POS shift is required to accept payment', 409);
+    const paidBefore = await currentPaidAmount(orderId, session);
+    const due = money(order.total - paidBefore);
+    const requested = money(inputs.reduce((sum, input) => sum + input.amount, 0));
+    if (inputs.some((input) => !Number.isFinite(input.amount) || input.amount <= 0)) throw new AppError('Payment amounts must be greater than zero', 400);
+    if (requested > due) throw new AppError(`Payment exceeds remaining balance of ${due.toFixed(2)}`, 400);
 
-      const payments = [];
-      for (const input of inputs) {
-        if (input.method === 'store_credit') {
-          if (!order.customer) throw new AppError('Customer must be attached to order to use store credit', 400);
-          await crmService.adjustCustomerCredit(
-            String(order.customer),
-            input.amount,
-            'order_payment',
-            `POS Order ${order.orderNumber} payment`,
-            userId,
-            String(order._id)
-          );
-        } else if (input.method === 'gift_card') {
-          if (!input.reference) throw new AppError('Gift card code is required in reference field', 400);
-          await giftCardService.redeemGiftCard(
-            input.reference,
-            input.amount,
-            String(order._id),
-            undefined,
-            userId
-          );
-        }
-
-        const groupType = inputs.length > 1 ? (inputs.every((item) => item.method === inputs[0].method) ? 'split' : 'mixed') : (input.groupType ?? 'single');
-        const [payment] = await Payment.create([{ order: order._id, shift: shift._id, method: input.method, groupType, amount: money(input.amount), reference: input.reference, notes: input.notes, receivedBy: userId }], { session });
-        payments.push(payment);
-        await ShiftTransaction.create([{ shift: shift._id, type: 'payment', amount: money(input.amount), method: input.method, order: order._id, payment: payment._id, notes: input.notes, createdBy: userId }], { session });
-        await auditPayment('payment_received', 'Payment', String(payment._id), userId, { amount: input.amount, method: input.method, after: { order: orderId, shift: String(shift._id) } }, session);
+    const payments = [];
+    for (const input of inputs) {
+      if (input.method === 'store_credit') {
+        if (!order.customer) throw new AppError('Customer must be attached to order to use store credit', 400);
+        await crmService.adjustCustomerCredit(
+          String(order.customer),
+          input.amount,
+          'order_payment',
+          `POS Order ${order.orderNumber} payment`,
+          userId,
+          String(order._id)
+        );
+      } else if (input.method === 'gift_card') {
+        if (!input.reference) throw new AppError('Gift card code is required in reference field', 400);
+        await giftCardService.redeemGiftCard(
+          input.reference,
+          input.amount,
+          String(order._id),
+          undefined,
+          userId
+        );
       }
 
-      const paid = money(paidBefore + requested);
-      const fullyPaid = paid >= order.total;
-      order.paymentStatus = fullyPaid ? 'paid' : 'partially_paid';
-      if (fullyPaid) {
-        order.status = 'completed';
-        if (order.customer) {
-          customerToReward = { customerId: String(order.customer), total: order.total, orderId: String(order._id) };
-        }
-      }
-      await order.save({ session });
-      let documents: { receipt?: unknown; invoice?: unknown } = {};
-      if (fullyPaid) documents = await issueDocuments(order, paid, userId, session);
-      const shiftSummary = await getShiftSummary(String(shift._id), userId, session);
-      shift.expectedCash = shiftSummary.totals.expectedCash;
-      await shift.save({ session });
-      result = { order, payments, ...documents, paid, due: money(order.total - paid) };
-    });
-
-    if (customerToReward) {
-      await loyaltyService.awardPoints(customerToReward.customerId, customerToReward.total, customerToReward.orderId);
+      const groupType = inputs.length > 1 ? (inputs.every((item) => item.method === inputs[0].method) ? 'split' : 'mixed') : (input.groupType ?? 'single');
+      const [payment] = await Payment.create([{ order: order._id, shift: shift._id, method: input.method, groupType, amount: money(input.amount), reference: input.reference, notes: input.notes, receivedBy: userId }], { session });
+      payments.push(payment);
+      await ShiftTransaction.create([{ shift: shift._id, type: 'payment', amount: money(input.amount), method: input.method, order: order._id, payment: payment._id, notes: input.notes, createdBy: userId }], { session });
+      await auditPayment('payment_received', 'Payment', String(payment._id), userId, { amount: input.amount, method: input.method, after: { order: orderId, shift: String(shift._id) } }, session);
     }
+
+    const paid = money(paidBefore + requested);
+    const fullyPaid = paid >= order.total;
+    order.paymentStatus = fullyPaid ? 'paid' : 'partially_paid';
+    if (fullyPaid) {
+      order.status = 'completed';
+      if (order.customer) {
+        customerToReward.push({ customerId: String(order.customer), total: order.total, orderId: String(order._id) });
+      }
+    }
+    await order.save({ session });
+    let documents: { receipt?: unknown; invoice?: unknown } = {};
+    if (fullyPaid) documents = await issueDocuments(order, paid, userId, session);
+    const shiftSummary = await getShiftSummary(String(shift._id), userId, session);
+    shift.expectedCash = shiftSummary.totals.expectedCash;
+    await shift.save({ session });
+    result = { order, payments, ...documents, paid, due: money(order.total - paid) };
+  });
+
+  if (customerToReward.length > 0) {
+    const item = customerToReward[0];
+    await loyaltyService.awardPoints(item.customerId, item.total, item.orderId);
+  }
 
     return result;
   } finally {

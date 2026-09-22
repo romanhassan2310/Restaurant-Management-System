@@ -12,6 +12,15 @@ import TablesPage from './pages/TablesPage';
 import WaiterPage from './pages/WaiterPage';
 import QrOrderPage from './pages/QrOrderPage';
 import ProcurementPage from './pages/ProcurementPage';
+import CrmPage from './pages/CrmPage';
+import LoyaltyPage from './pages/LoyaltyPage';
+import GiftCardsPage from './pages/GiftCardsPage';
+import HrPage from './pages/HrPage';
+import PayrollPage from './pages/PayrollPage';
+import ExpensePage from './pages/ExpensePage';
+import CateringPage from './pages/CateringPage';
+import QuotationPage from './pages/QuotationPage';
+import MobileVanPage from './pages/MobileVanPage';
 
 function ProtectedRoute({ children }: { children: JSX.Element }) {
   const { isAuthenticated, loading } = useAuth();
@@ -47,6 +56,36 @@ function AppRoutes() {
           <ProtectedRoute>
             <Layout>
               <PosPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/crm"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <CrmPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/loyalty"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <LoyaltyPage />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/gift-cards"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <GiftCardsPage />
             </Layout>
           </ProtectedRoute>
         }
@@ -94,6 +133,12 @@ function AppRoutes() {
       <Route path="/tables" element={<ProtectedRoute><Layout><TablesPage /></Layout></ProtectedRoute>} />
       <Route path="/waiter" element={<ProtectedRoute><Layout><WaiterPage /></Layout></ProtectedRoute>} />
       <Route path="/procurement" element={<ProtectedRoute><Layout><ProcurementPage /></Layout></ProtectedRoute>} />
+      <Route path="/hr" element={<ProtectedRoute><Layout><HrPage /></Layout></ProtectedRoute>} />
+      <Route path="/payroll" element={<ProtectedRoute><Layout><PayrollPage /></Layout></ProtectedRoute>} />
+      <Route path="/expenses" element={<ProtectedRoute><Layout><ExpensePage /></Layout></ProtectedRoute>} />
+      <Route path="/catering" element={<ProtectedRoute><Layout><CateringPage /></Layout></ProtectedRoute>} />
+      <Route path="/quotations" element={<ProtectedRoute><Layout><QuotationPage /></Layout></ProtectedRoute>} />
+      <Route path="/mobile-van" element={<ProtectedRoute><Layout><MobileVanPage /></Layout></ProtectedRoute>} />
     </Routes>
   );
 }
